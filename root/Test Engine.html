@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prelims Sprint — Test Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --panel: #ffffff;
+    --ink: #1a1a1a;
+    --ink-soft: #4b4b4b;
+    --muted: #8a8a8a;
+    --line: #e6e3dc;
+    --line-strong: #d4d0c5;
+    --accent: #b34a2c;
+    --accent-soft: #fbeae3;
+    --correct: #1f7a3a;
+    --correct-soft: #e3f3e8;
+    --wrong: #c0392b;
+    --wrong-soft: #fbe6e3;
+    --warn: #b8860b;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .serif { font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; }
+
+  /* Layout */
+  .app {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+  aside.sidebar {
+    background: #fbfaf6;
+    border-right: 1px solid var(--line);
+    padding: 24px 22px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  main.content {
+    padding: 32px 40px 80px;
+    max-width: 920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Brand */
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+  .brand .logo {
+    width: 28px; height: 28px;
+    background: var(--ink);
+    color: white;
+    display: grid; place-items: center;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 14px;
+    transform: translateY(2px);
+  }
+  .brand h1 {
+    font-size: 17px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .brand .sub {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* Filter sections */
+  .filter-section {
+    margin-bottom: 24px;
+  }
+  .filter-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  .filter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .filter-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    user-select: none;
+    transition: background .12s ease;
+  }
+  .filter-item:hover { background: rgba(0,0,0,.04); color: var(--ink); }
+  .filter-item.active {
+    background: var(--ink);
+    color: white;
+    font-weight: 500;
+  }
+  .filter-item.active .count { color: rgba(255,255,255,.7); }
+  .filter-item .count {
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: white;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color .15s ease;
+  }
+  .search-input:focus { border-color: var(--ink); }
+  .search-input::placeholder { color: var(--muted); }
+
+  /* Topbar */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    margin-bottom: 28px;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .topbar .left h2 {
+    font-size: 28px;
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .topbar .left .meta {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .stats {
+    display: flex;
+    gap: 28px;
+  }
+  .stat {
+    text-align: right;
+  }
+  .stat .v {
+    font-size: 22px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .stat .v.correct { color: var(--correct); }
+  .stat .v.wrong { color: var(--wrong); }
+  .stat .l {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* Mode pill row */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .pill-group {
+    display: inline-flex;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px;
+    box-shadow: var(--shadow);
+  }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    user-select: none;
+    transition: all .12s ease;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill.active {
+    background: var(--ink);
+    color: white;
+    font-weight: 500;
+  }
+  .btn {
+    background: white;
+    border: 1px solid var(--line-strong);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background .12s ease;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn.primary {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+  }
+  .btn.primary:hover { background: #000; }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn.danger { background: #c0392b; color: white; border-color: #c0392b; }
+  .btn.danger:hover { background: #a8321f; }
+  .mine-progress {
+    margin-top: 6px;
+    height: 3px;
+    background: var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .mine-progress > div {
+    height: 100%;
+    background: #6a3bb0;
+    transition: width .2s ease;
+  }
+
+  /* Question card */
+  .qcard {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 32px 36px;
+    box-shadow: var(--shadow);
+  }
+  .qhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 16px;
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .qhead .qnum {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 32px;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .qhead .tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .tag {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .tag.subject { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 500; }
+  .tag.lot { background: #f0ece2; color: #6b5e3f; border-color: transparent; }
+  .tag.mineable { background: #efe6ff; color: #6a3bb0; border-color: transparent; font-weight: 500; }
+
+  /* Mining UI */
+  .mine-wrap {
+    margin-top: 18px;
+    padding: 18px 20px;
+    background: linear-gradient(180deg, #fbf8ff, #f5efff);
+    border: 1px solid #e0d4f5;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .mine-btn {
+    background: #6a3bb0;
+    color: white;
+    border-color: #6a3bb0;
+  }
+  .mine-btn:hover:not(:disabled) { background: #5a2f9d; }
+  .mine-hint {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .mining-status {
+    font-size: 13.5px;
+    color: #6a3bb0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mining-status.error { color: var(--wrong); }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid #d4c3eb;
+    border-top-color: #6a3bb0;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .qtext {
+    font-size: 16.5px;
+    line-height: 1.6;
+    color: var(--ink);
+    white-space: pre-wrap;
+    margin-bottom: 22px;
+  }
+  .qtext .stmt-list {
+    margin: 8px 0 6px;
+    padding-left: 0;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .opt {
+    display: flex;
+    align-items: start;
+    gap: 14px;
+    padding: 13px 16px;
+    background: #fbfaf6;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14.5px;
+    color: var(--ink);
+    transition: all .12s ease;
+    line-height: 1.5;
+  }
+  .opt:hover { border-color: var(--ink); background: white; }
+  .opt .letter {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: white;
+  }
+  .opt.selected {
+    border-color: var(--ink);
+    background: white;
+  }
+  .opt.selected .letter {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+  }
+  .opt.correct {
+    border-color: var(--correct);
+    background: var(--correct-soft);
+  }
+  .opt.correct .letter { background: var(--correct); color: white; border-color: var(--correct); }
+  .opt.wrong {
+    border-color: var(--wrong);
+    background: var(--wrong-soft);
+  }
+  .opt.wrong .letter { background: var(--wrong); color: white; border-color: var(--wrong); }
+  .opt.locked { cursor: default; }
+  .opt.locked:hover { border-color: var(--line); }
+  .opt.correct.locked:hover { border-color: var(--correct); }
+  .opt.wrong.locked:hover { border-color: var(--wrong); }
+
+  /* Explanation */
+  .explanation {
+    margin-top: 22px;
+    padding: 20px 22px;
+    background: #fbfaf6;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    white-space: pre-wrap;
+  }
+  .explanation .eh {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  /* Footer nav */
+  .qfoot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    gap: 12px;
+  }
+  .qfoot .center {
+    font-size: 13px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+  }
+  .empty .big {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 32px;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-bottom: 18px;
+  }
+  .progress-bar {
+    height: 4px;
+    background: var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width .25s ease;
+    border-radius: 999px;
+  }
+
+  /* Question grid jump */
+  .qgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+    gap: 5px;
+    margin-top: 20px;
+    padding: 16px;
+    background: #fbfaf6;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .qgrid .cell {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    border-radius: 5px;
+    background: white;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+    transition: all .1s ease;
+  }
+  .qgrid .cell:hover { border-color: var(--ink); }
+  .qgrid .cell.current { background: var(--ink); color: white; border-color: var(--ink); }
+  .qgrid .cell.answered-correct { background: var(--correct-soft); border-color: var(--correct); color: var(--correct); }
+  .qgrid .cell.answered-wrong { background: var(--wrong-soft); border-color: var(--wrong); color: var(--wrong); }
+  .qgrid .cell.answered-unattempted { background: #f0ece2; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* Toggle row */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .toggle-row:hover { background: rgba(0,0,0,.04); color: var(--ink); }
+  .toggle-row .box {
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 4px;
+    display: grid;
+    place-items: center;
+    background: white;
+    flex-shrink: 0;
+  }
+  .toggle-row.on .box {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .toggle-row.on .box::after {
+    content: '✓';
+    color: white;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  /* Section header in main */
+  .main-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .main-section-head .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    aside.sidebar {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+    }
+    main.content { padding: 24px 20px 60px; }
+    .qcard { padding: 24px 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">P</div>
+      <div>
+        <h1>Basava Sir Sprint</h1>
+        <span class="sub">Test engine · 2026</span>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <h3>Search</h3>
+      <input type="text" class="search-input" id="search" placeholder="Find a question…" />
+    </div>
+
+    <div class="filter-section">
+      <h3>Subject</h3>
+      <div class="filter-list" id="filter-subject"></div>
+    </div>
+
+    <div class="filter-section">
+      <h3>Topic</h3>
+      <div class="filter-list" id="filter-topic"></div>
+    </div>
+
+    <div class="filter-section">
+      <h3>Worksheet (Area)</h3>
+      <div class="filter-list" id="filter-area"></div>
+    </div>
+
+    <div class="filter-section">
+      <h3>Options</h3>
+      <div class="filter-list">
+        <div class="toggle-row" id="toggle-shuffle"><div class="box"></div><span>Shuffle order</span></div>
+        <div class="toggle-row" id="toggle-bookmarks"><div class="box"></div><span>Bookmarked only</span></div>
+        <div class="toggle-row" id="toggle-incorrect"><div class="box"></div><span>Only incorrect</span></div>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <h3>Mining</h3>
+      <button class="btn primary" id="mine-all-btn" style="width: 100%; margin-bottom: 8px;">✦ Mine all answers</button>
+      <div id="mine-all-status" style="font-size: 12px; color: var(--muted); line-height: 1.5;"></div>
+    </div>
+
+    <div class="filter-section">
+      <button class="btn" id="reset-progress" style="width: 100%;">Reset progress</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="topbar">
+      <div class="left">
+        <h2><span class="serif">A</span> learning sprint, distilled.</h2>
+        <div class="meta" id="meta-line">— questions in current filter</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="stat-total">0</div><div class="l">Answered</div></div>
+        <div class="stat"><div class="v correct" id="stat-correct">0</div><div class="l">Correct</div></div>
+        <div class="stat"><div class="v wrong" id="stat-wrong">0</div><div class="l">Wrong</div></div>
+        <div class="stat"><div class="v" id="stat-acc">—</div><div class="l">Accuracy</div></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="pill-group" id="mode-toggle">
+        <div class="pill active" data-mode="practice">Practice</div>
+        <div class="pill" data-mode="reveal">Reveal mode</div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn" id="bookmark-btn">☆ Bookmark</button>
+        <button class="btn" id="random-btn">Random</button>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 0%"></div></div>
+    </div>
+
+    <div id="qcontainer"></div>
+
+    <div class="main-section-head" style="margin-top: 28px;">
+      <span class="label">Question map</span>
+      <span class="label" id="qmap-legend">grey = unanswered · green = correct · red = wrong</span>
+    </div>
+    <div class="qgrid" id="qgrid"></div>
+
+  </main>
+</div>
+
+<script src="questions.js"></script>
+<script src="engine.js"></script>
+</body>
+</html>
